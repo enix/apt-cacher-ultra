@@ -99,3 +99,35 @@ func TestNew_AdminTLSHalfSetRejected(t *testing.T) {
 		})
 	}
 }
+
+// TestNew_AdminUseAcmeRequiresProvider pins that Admin.UseAcme and
+// TLSCertProvider are set together: UseAcme alone would make Serve call
+// ServeTLS with no certificate source, and a provider alone would be
+// silently ignored on a plain-HTTP listener.
+func TestNew_AdminUseAcmeRequiresProvider(t *testing.T) {
+	provider := func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil }
+	for _, tc := range []struct {
+		name     string
+		useAcme  bool
+		provider func(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	}{
+		{name: "use_acme without provider", useAcme: true},
+		{name: "provider without use_acme", provider: provider},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := newTestAdminConfig(t)
+			t.Cleanup(func() { _ = cfg.Cache.Close() })
+			cfg.AdminAddr = "127.0.0.1:0"
+			cfg.Admin.UseAcme = tc.useAcme
+			cfg.TLSCertProvider = tc.provider
+
+			_, err := New(cfg)
+			if err == nil {
+				t.Fatal("New accepted a mismatched UseAcme / TLSCertProvider, want error")
+			}
+			if !strings.Contains(err.Error(), "Admin.UseAcme") {
+				t.Errorf("error %q does not name Admin.UseAcme", err.Error())
+			}
+		})
+	}
+}

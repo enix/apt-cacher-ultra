@@ -32,6 +32,7 @@ type statusModel struct {
 	RepoCoverage    repoCoverageInfo `json:"repo_coverage"`
 	Listeners       []listenerInfo   `json:"listeners"`
 	TLSMITM         *tlsMITMInfo     `json:"tls_mitm"`
+	ACME            *acmeInfo        `json:"acme"`
 	Suites          []suiteEntry     `json:"suites"`
 	GC              *gcInfo          `json:"gc"`
 	HotURLPaths     []hotURLEntry    `json:"hot_url_paths"`
@@ -212,6 +213,42 @@ func (t *tlsMITMInfo) MarshalJSON() ([]byte, error) {
 	}
 	type alias tlsMITMInfo
 	return json.Marshal((*alias)(t))
+}
+
+// acmeInfo is the status-page ACME section (docs/acme-certificates-
+// spec.md § "Observabilité"). Same abbreviated/full split as
+// tlsMITMInfo: when Enabled is false the MarshalJSON below emits
+// exactly `{"enabled": false}` — the top-level `acme` key is always
+// present, abbreviated when ACME is off.
+//
+// The timestamp fields are pointer-typed so encoding/json renders
+// nil as JSON null when no certificate / renewal has been recorded
+// yet — the same "absent vs present" distinction tlsMITMInfo uses
+// for last_cert_issued. Surfaces is always non-nil so the JSON
+// renders `[]` (not `null`) when empty. No secret is ever carried:
+// no keys, no tokens, no signed URLs.
+type acmeInfo struct {
+	Enabled               bool     `json:"enabled"`
+	DNSName               string   `json:"dns_name"`
+	DirectoryURL          string   `json:"directory_url"`
+	Surfaces              []string `json:"surfaces"`
+	CertFingerprintSHA256 string   `json:"cert_fingerprint_sha256"`
+	CertNotBeforeUnixTime *int64   `json:"cert_not_before_unixtime"`
+	CertNotAfterUnixTime  *int64   `json:"cert_not_after_unixtime"`
+	LastRenewalUnixTime   *int64   `json:"last_renewal_unixtime"`
+	LastError             string   `json:"last_error"`
+}
+
+// MarshalJSON renders `{"enabled": false}` when the section is
+// disabled (the JSON top-level `acme` key is always present,
+// abbreviated when ACME is off). The type-alias trick avoids
+// infinite recursion when delegating to encoding/json.
+func (a *acmeInfo) MarshalJSON() ([]byte, error) {
+	if a == nil || !a.Enabled {
+		return []byte(`{"enabled":false}`), nil
+	}
+	type alias acmeInfo
+	return json.Marshal((*alias)(a))
 }
 
 type processInfo struct {
@@ -406,6 +443,7 @@ func (s *Server) buildStatusModel(r *http.Request) (statusModel, string, error) 
 		RepoCoverage:    buildRepoCoverageInfo(repo, s.cfg.AdoptionArchitectures),
 		Listeners:       buildListenerInfo(s.cfg),
 		TLSMITM:         buildTLSMITMInfo(s.cfg.TLSMITM),
+		ACME:            buildACMEInfo(s.cfg.ACME),
 		Suites:          buildSuiteEntries(suitesRaw.([]cache.SuiteWithAdoption)),
 		HotURLPaths:     buildHotURLEntries(hotPaths.([]cache.HotURLPath)),
 		RecentAdoptions: buildAdoptionEntries(s.cfg.Ring.Snapshot()),
@@ -482,6 +520,47 @@ func buildTLSMITMInfo(p TLSMITMProvider) *tlsMITMInfo {
 	if obs := snap.HitRate60sHits + snap.HitRate60sMisses; obs > 0 {
 		pct := 100 * float64(snap.HitRate60sHits) / float64(obs)
 		out.HitRate60sPercent = &pct
+	}
+	return out
+}
+
+// buildACMEInfo translates the cmd-supplied snapshot into the
+// status-page ACME section. nil provider → disabled section (the
+// snapshot's Enabled field also being false would produce the same
+// shape; the nil short-circuit avoids interface-method dispatch).
+// Surfaces lists the listeners selecting ACME ("cache" and/or
+// "admin"); always non-nil so the JSON renders `[]` when empty.
+func buildACMEInfo(p ACMEProvider) *acmeInfo {
+	if p == nil {
+		return &acmeInfo{Enabled: false}
+	}
+	snap := p.ACMESnapshot()
+	if !snap.Enabled {
+		return &acmeInfo{Enabled: false}
+	}
+	out := &acmeInfo{
+		Enabled:               true,
+		DNSName:               snap.DNSName,
+		DirectoryURL:          snap.DirectoryURL,
+		Surfaces:              []string{},
+		CertFingerprintSHA256: snap.CertFingerprintSHA256,
+		LastError:             snap.LastError,
+	}
+	if snap.CacheUseAcme {
+		out.Surfaces = append(out.Surfaces, "cache")
+	}
+	if snap.AdminUseAcme {
+		out.Surfaces = append(out.Surfaces, "admin")
+	}
+	if snap.HasCert {
+		nb := snap.CertNotBefore.Unix()
+		na := snap.CertNotAfter.Unix()
+		out.CertNotBeforeUnixTime = &nb
+		out.CertNotAfterUnixTime = &na
+	}
+	if !snap.LastRenewalAt.IsZero() {
+		ts := snap.LastRenewalAt.Unix()
+		out.LastRenewalUnixTime = &ts
 	}
 	return out
 }

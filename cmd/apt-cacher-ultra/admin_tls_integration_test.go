@@ -79,7 +79,7 @@ func TestServe_AdminTLS(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	serveDone := make(chan error, 1)
 	go func() {
-		serveDone <- serveListeners(ctx, cfg, logger, cacheLn, nil, adminLn, nil)
+		serveDone <- serveListeners(ctx, cfg, logger, cacheLn, nil, adminLn, nil, nil)
 	}()
 	t.Cleanup(func() {
 		cancel()
