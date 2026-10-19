@@ -43,9 +43,10 @@ renew_before_days = 7
 check_interval = "12h"
 ```
 
-`directory_url`, `dns_name` and `listen` are only required when
-`enabled = true`. The documentation must suggest the Let's Encrypt staging URL
-for testing in order to avoid production rate limits:
+`directory_url` and `dns_name` are required when `enabled = true`;
+`listen` defaults to `0.0.0.0:80` when the key is absent. The documentation
+must suggest the Let's Encrypt staging URL for testing in order to avoid
+production rate limits:
 
 ```toml
 directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"

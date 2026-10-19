@@ -464,7 +464,7 @@ are independent.
 | `enabled` | boolean | `false` | Master switch. `false` creates no account, challenge, or certificate, and any `use_acme = true` is a configuration error. |
 | `directory_url` | string | `""` | ACME directory endpoint; required when enabled. Must be an HTTPS URL without credentials, fragment, or query. Use the staging endpoint for trials — production enforces rate limits: `https://acme-staging-v02.api.letsencrypt.org/directory` (production: `https://acme-v02.api.letsencrypt.org/directory`). |
 | `dns_name` | string | `""` | Single FQDN placed in the server certificate; required when enabled. No scheme, path, port, IP literal, or wildcard. Both ACME surfaces are served under this one name. |
-| `listen` | string | `""` | Local address temporarily bound by the HTTP-01 challenge server during issuance or renewal; required when enabled. |
+| `listen` | string | `"0.0.0.0:80"` | Local address temporarily bound by the HTTP-01 challenge server during issuance or renewal. |
 | `renew_before_days` | integer | `7` | Renew when the certificate expiration is at most this many days away. At least `1`. When it covers the whole certificate lifetime (e.g. `7` with 6-day certificates), the window is clamped to a third of the lifetime and `acme_renew_before_clamped` is logged, so a certificate is never due as soon as issued. |
 | `check_interval` | duration | `"12h"` | How often the certificate expiration is checked. Must be positive and well below the certificate lifetime so a renewal is never missed. |
 

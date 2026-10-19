@@ -659,10 +659,11 @@ type AcmeConfig struct {
 	DNSName string `toml:"dns_name"`
 
 	// Listen is the local address temporarily bound by the HTTP-01
-	// challenge server just before an issuance or renewal. Required
-	// when enabled. The public TCP port 80 of dns_name must be
-	// published (DNS, firewall, NAT or reverse proxy) to this
-	// address; a local port other than 80 requires such a forward.
+	// challenge server just before an issuance or renewal. Defaults
+	// to "0.0.0.0:80" when the key is absent from the config file.
+	// The public TCP port 80 of dns_name must be published (DNS,
+	// firewall, NAT or reverse proxy) to this address; a local port
+	// other than 80 requires such a forward.
 	Listen string `toml:"listen"`
 
 	// RenewBeforeDays is the renewal threshold in days: the
@@ -872,9 +873,13 @@ func Load(path string) (*Config, error) {
 		cfg.TlsMitm.LeafAlgorithm = "ecdsa-p256"
 	}
 	// [acme] presence-sensitive defaults (docs/acme-certificates-spec.md):
-	// renew_before_days = 7, check_interval = 12h. Routed through
-	// IsDefined so an operator's explicit (and invalid) value survives
-	// to Validate() instead of being silently rescued to the default.
+	// listen = "0.0.0.0:80", renew_before_days = 7, check_interval = 12h.
+	// Routed through IsDefined so an operator's explicit (and invalid)
+	// value survives to Validate() instead of being silently rescued
+	// to the default.
+	if !md.IsDefined("acme", "listen") {
+		cfg.Acme.Listen = "0.0.0.0:80"
+	}
 	if !md.IsDefined("acme", "renew_before_days") {
 		cfg.Acme.RenewBeforeDays = 7
 	}

@@ -59,8 +59,9 @@ func TestLoad_AcmeValid(t *testing.T) {
 }
 
 // TestLoad_AcmeDefaults pins the presence-sensitive defaults applied by
-// Load(): renew_before_days = 7 and check_interval = 12h when the keys
-// are absent, and an explicit value surviving when present.
+// Load(): listen = "0.0.0.0:80", renew_before_days = 7 and
+// check_interval = 12h when the keys are absent, and an explicit value
+// surviving when present.
 func TestLoad_AcmeDefaults(t *testing.T) {
 	cfg, err := loadAcmeConfig(t, acmeValidBody)
 	if err != nil {
@@ -71,6 +72,16 @@ func TestLoad_AcmeDefaults(t *testing.T) {
 	}
 	if cfg.Acme.CheckInterval.Duration != 12*time.Hour {
 		t.Errorf("CheckInterval = %s, want 12h (default)", cfg.Acme.CheckInterval.Duration)
+	}
+
+	// listen absent from the [acme] block: defaults to 0.0.0.0:80.
+	withoutListen := strings.Replace(acmeValidBody, "listen = \"0.0.0.0:80\"\n", "", 1)
+	cfgNoListen, err := loadAcmeConfig(t, withoutListen)
+	if err != nil {
+		t.Fatalf("Load without listen: %v", err)
+	}
+	if cfgNoListen.Acme.Listen != "0.0.0.0:80" {
+		t.Errorf("Listen = %q, want 0.0.0.0:80 (default)", cfgNoListen.Acme.Listen)
 	}
 
 	withExplicit := strings.Replace(acmeValidBody,
@@ -87,6 +98,18 @@ check_interval = "1h"`, 1)
 	}
 	if cfg2.Acme.CheckInterval.Duration != time.Hour {
 		t.Errorf("CheckInterval = %s, want 1h (explicit)", cfg2.Acme.CheckInterval.Duration)
+	}
+
+	// Explicit non-default listen survives.
+	withCustomListen := strings.Replace(acmeValidBody,
+		`listen = "0.0.0.0:80"`,
+		`listen = "127.0.0.1:8080"`, 1)
+	cfg3, err := loadAcmeConfig(t, withCustomListen)
+	if err != nil {
+		t.Fatalf("Load custom listen: %v", err)
+	}
+	if cfg3.Acme.Listen != "127.0.0.1:8080" {
+		t.Errorf("Listen = %q, want 127.0.0.1:8080 (explicit)", cfg3.Acme.Listen)
 	}
 }
 

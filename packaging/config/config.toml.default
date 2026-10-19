@@ -229,9 +229,10 @@ directory_url     = ""
 # (DNS, firewall, NAT or reverse proxy).
 dns_name          = ""
 # Local address temporarily bound by the HTTP-01 challenge server just
-# before an issuance or renewal. Required when enabled. A local port
-# other than 80 requires a reverse proxy/NAT publishing public port 80.
-listen            = ""
+# before an issuance or renewal. Defaults to "0.0.0.0:80" when absent.
+# A local port other than 80 requires a reverse proxy/NAT publishing
+# public port 80.
+listen            = "0.0.0.0:80"
 # Renew the certificate when its expiration is at most this many days
 # away. >= 1; Let's Encrypt certificates are valid 90 days.
 renew_before_days = 7
