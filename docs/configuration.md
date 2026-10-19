@@ -481,11 +481,15 @@ Point DNS for `dns_name` at the cache host and publish port 80 to
 `acme.listen` through a firewall rule, NAT, or reverse proxy. A local
 `acme.listen` port other than 80 (for example `127.0.0.1:8080`) works only when
 such a forward exists; changing `acme.listen` alone does not make the
-validation succeed. The challenge server runs only during an issuance or
-renewal and serves only the `/.well-known/acme-challenge/` path. If no usable
-certificate is available at startup — the first issuance failed, or the stored
-certificate is expired and its renewal failed — the daemon exits with an error
-and serves nothing.
+validation succeed. Binding port 80 requires `CAP_NET_BIND_SERVICE`: the
+packaged systemd unit grants it through `AmbientCapabilities` (with a matching
+`CapabilityBoundingSet`) so the daemon keeps running as its unprivileged user.
+A custom unit must do the same; `setcap` on the binary does not work under the
+packaged unit's `NoNewPrivileges=true`. The challenge server runs only during
+an issuance or renewal and serves only the `/.well-known/acme-challenge/` path.
+If no usable certificate is available at startup — the first issuance failed,
+or the stored certificate is expired and its renewal failed — the daemon exits
+with an error and serves nothing.
 
 The account, certificate, and renewal metadata persist in `<cache.dir>/acme`
 (directory mode `0700`, private keys `0600`). Keep this directory on persistent
